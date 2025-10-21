@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crossy Duck</title>
+  <style>
+    body {
+      margin: 0;
+      background: #88c070;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    canvas {
+      border: 4px solid #222;
+      border-radius: 12px;
+      background: #7ec850;
+      image-rendering: pixelated;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="480" height="640"></canvas>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    const TILE = 64;
+    const LANES = 5;
+    const DUCK_SPEED = TILE;
+    let score = 0;
+
+    const image = new Image();
+    image.src = "assets/crossyroad_sprites.png"; // your uploaded sprite sheet
+
+    // Define simple sprite locations (you’ll adjust these once you slice your image)
+    const sprites = {
+      road: { x: 0, y: 128, w: 480, h: 64 },
+      grass: { x: 0, y: 0, w: 480, h: 64 },
+      duck: { x: 0, y: 320, w: 64, h: 64 } // pink duck area
+    };
+
+    const player = {
+      x: 3 * TILE,
+      y: 9 * TILE,
+      w: TILE,
+      h: TILE
+    };
+
+    // Cars in each lane
+    const cars = [];
+    for (let i = 0; i < LANES; i++) {
+      const y = 2 * TILE + i * TILE;
+      for (let j = 0; j < 3; j++) {
+        cars.push({
+          x: j * 180 + (i % 2 === 0 ? 0 : 100),
+          y: y,
+          w: 80,
+          h: 40,
+          speed: (i % 2 === 0 ? 1 : -1) * (2 + i * 0.3)
+        });
+      }
+    }
+
+    let keys = {};
+
+    document.addEventListener("keydown", e => keys[e.key] = true);
+    document.addEventListener("keyup", e => keys[e.key] = false);
+
+    function drawSprite(sprite, x, y, w, h) {
+      ctx.drawImage(image, sprite.x, sprite.y, sprite.w, sprite.h, x, y, w, h);
+    }
+
+    function resetPlayer() {
+      player.x = 3 * TILE;
+      player.y = 9 * TILE;
+      score = 0;
+    }
+
+    function update(dt) {
+      // Move player
+      if (keys["ArrowUp"]) { player.y -= DUCK_SPEED; keys["ArrowUp"] = false; score++; }
+      if (keys["ArrowDown"]) { player.y += DUCK_SPEED; keys["ArrowDown"] = false; }
+      if (keys["ArrowLeft"]) { player.x -= DUCK_SPEED; keys["ArrowLeft"] = false; }
+      if (keys["ArrowRight"]) { player.x += DUCK_SPEED; keys["ArrowRight"] = false; }
+
+      // Clamp player
+      player.x = Math.max(0, Math.min(canvas.width - player.w, player.x));
+      player.y = Math.max(0, Math.min(canvas.height - player.h, player.y));
+
+      // Move cars
+      for (let car of cars) {
+        car.x += car.speed * 3;
+        if (car.speed > 0 && car.x > canvas.width + 100) car.x = -120;
+        if (car.speed < 0 && car.x < -120) car.x = canvas.width + 100;
+      }
+
+      // Collision detection
+      for (let car of cars) {
+        if (
+          player.x < car.x + car.w &&
+          player.x + player.w > car.x &&
+          player.y < car.y + car.h &&
+          player.y + player.h > car.y
+        ) {
+          resetPlayer();
+        }
+      }
+    }
+
+    function draw() {
+      // Background grass + road layers
+      for (let i = 0; i < 10; i++) {
+        if (i < 2 || i > 6)
+          drawSprite(sprites.grass, 0, i * TILE, 480, TILE);
+        else
+          drawSprite(sprites.road, 0, i * TILE, 480, TILE);
+      }
+
+      // Cars
+      ctx.fillStyle = "red";
+      for (let car of cars) {
+        ctx.fillRect(car.x, car.y + 12, car.w, car.h);
+      }
+
+      // Duck
+      drawSprite(sprites.duck, player.x, player.y, TILE, TILE);
+
+      // Score
+      ctx.fillStyle = "white";
+      ctx.font = "24px monospace";
+      ctx.fillText("Score: " + score, 20, 32);
+    }
+
+    let last = 0;
+    function gameLoop(ts) {
+      const dt = (ts - last) / 1000;
+      last = ts;
+      update(dt);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    image.onload = () => gameLoop(0);
+  </script>
+</body>
+</html>
